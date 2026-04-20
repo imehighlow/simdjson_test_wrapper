@@ -1,0 +1,62 @@
+name: anaconda-upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: GitHub Actions run ID containing conda package artifacts
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  upload:
+    name: upload existing artifacts
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.run_id }}
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: upload
+          python-version: "3.13"
+          channels: defaults
+          auto-update-conda: true
+
+      - name: Install anaconda-client
+        run: conda install -y anaconda-client
+
+      - name: Check Anaconda token
+        env:
+          ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+        run: |
+          test -n "$ANACONDA_TOKEN"
+          anaconda -t "$ANACONDA_TOKEN" whoami
+
+      - name: Upload packages
+        env:
+          ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+        run: |
+          mapfile -d '' packages < <(find artifacts -name "*.conda" -print0)
+
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "No .conda packages found under artifacts/"
+            exit 1
+          fi
+
+          printf 'Uploading %s packages:\n' "${#packages[@]}"
+          printf '  %s\n' "${packages[@]}"
+
+          anaconda --verbose -t "$ANACONDA_TOKEN" upload --skip-existing "${packages[@]}"
