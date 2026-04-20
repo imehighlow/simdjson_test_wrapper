@@ -1,0 +1,38 @@
+{% set name = "simdjson-test-wrapper" %}
+{% set version = "0.1.0" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
+
+requirements:
+  build:
+    - {{ compiler('cxx') }}
+    - cmake
+    - ninja
+    - make  # [unix]
+  host:
+    - python
+    - pip
+    - scikit-build-core >=0.11
+    - pybind11 >=2.12
+  run:
+    - python
+
+test:
+  imports:
+    - simdjson_test_wrapper
+  commands:
+    - python -c "import simdjson_test_wrapper as s; assert s.toJson('[1,true,null]') == [1, True, None]"
+
+about:
+  license: MIT
+  license_file: LICENSE
+  summary: Minimal Python bindings for JSON parsing and serialization.
